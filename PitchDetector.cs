@@ -23,7 +23,6 @@ public partial class PitchDetector : Node {
     [Signal]
     public delegate void PitchChangedEventHandler(PitchInfo pitch);
 
-    int busIndex;
     private AudioEffectCapture capture; // Audio capture effect from the "Record" bus
     private AudioStreamPlayer micPlayer; // Player to route microphone input
     public PitchInfo CurrentPitch { get; private set; }  // Current detected pitch information
@@ -38,7 +37,7 @@ public partial class PitchDetector : Node {
         Instance = this;
 
         // Set up audio bus and microphone input
-        busIndex = AudioServer.GetBusIndex(AudioBusName);
+        int busIndex = AudioServer.GetBusIndex(AudioBusName);
         var devices = AudioServer.GetInputDeviceList();
         // Log available input devices
         foreach (var device in devices) {
@@ -134,7 +133,7 @@ public partial class PitchDetector : Node {
     /// <param name="busName"></param>
     public void SetAudioBusName(string busName) {
         AudioBusName = busName;
-        busIndex = AudioServer.GetBusIndex(AudioBusName);
+        int busIndex = AudioServer.GetBusIndex(AudioBusName);
         if (micPlayer != null) {
             micPlayer.Bus = AudioBusName;
         }
