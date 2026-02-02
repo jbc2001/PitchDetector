@@ -1,0 +1,266 @@
+// PitchDetector.cs
+// Copyright (c) 2026 James Collins (jbc2001)
+// Licensed under the MIT License. See LICENSE file in PitchDetector folder.
+using Godot;
+using System;
+using System.Linq;
+
+[GlobalClass]
+[Icon("res://addons/PitchDetector/icon.svg")]
+
+public partial class PitchDetector : Node {
+    public static PitchDetector Instance { get; private set; }
+
+    [Export]
+    public int BufferSize = 2048;   // Size of audio buffer for pitch detection
+    [Export] 
+    public string AudioBusName = "Record";
+    [Export]
+    public float minFreq = 40f;   // low E on Bass = 41 Hz
+    [Export]
+    public float maxFreq = 700f;  // high E on Guitar = 660 Hz
+
+    [Signal]
+    public delegate void PitchChangedEventHandler(PitchInfo pitch);
+
+    int busIndex;
+    private AudioEffectCapture capture; // Audio capture effect from the "Record" bus
+    private AudioStreamPlayer micPlayer; // Player to route microphone input
+    public PitchInfo CurrentPitch { get; private set; }  // Current detected pitch information
+
+    // Initialize microphone input and audio bus
+    public override void _EnterTree() {
+
+        if (Instance != null) {
+            QueueFree(); // prevent duplicates
+            return;
+        }
+        Instance = this;
+
+        // Set up audio bus and microphone input
+        busIndex = AudioServer.GetBusIndex(AudioBusName);
+        var devices = AudioServer.GetInputDeviceList();
+        // Log available input devices
+        foreach (var device in devices) {
+            GD.Print($"Input Device: {device}");
+        }
+        //handle no input devices
+        if (devices.Length == 0) {
+            GD.PrintErr("No input devices available.");
+            return;
+        }
+
+        // Create and configure AudioStreamPlayer for microphone input
+        micPlayer = new AudioStreamPlayer();
+        micPlayer.Stream = new AudioStreamMicrophone();
+        micPlayer.Bus = AudioBusName;
+        AddChild(micPlayer);
+        micPlayer.Play();
+
+        // Set the input device to the first available device
+        capture = (AudioEffectCapture)AudioServer.GetBusEffect(busIndex, 0);
+
+        CurrentPitch = new PitchInfo();
+        CurrentPitch.Frequency = 0f;
+        CurrentPitch.Note = "--";
+        CurrentPitch.CentsOffset = 0f;
+
+
+    }
+
+    // Clean up resources on exit
+    public override void _ExitTree() {
+        if (micPlayer != null) {
+            micPlayer.Stop();
+            micPlayer.QueueFree(); // Remove from scene tree
+            micPlayer = null;
+        }
+
+        capture = null; // release reference
+        CurrentPitch = new PitchInfo(); // reset
+        if (Instance == this) Instance = null;
+    }
+
+
+    // Process audio input and perform pitch detection each frame
+    public override void _Process(double delta) {
+        // Ensure audio capture is initialized
+        if (capture == null) return;
+
+        // Check if enough frames are available for processing
+        var framesAvailable = capture.GetFramesAvailable();
+        if (framesAvailable < BufferSize) {
+            return;
+        }
+
+        // Retrieve audio buffer and process samples
+        var buffer = capture.GetBuffer(BufferSize);
+        if (buffer.Length == 0) {
+            return;
+        }
+
+        // Convert stereo buffer to mono and apply Hanning window
+        float[] samples = buffer.Select(v => (v.X + v.Y) * 0.5f).ToArray();
+        for (int i = 0; i < samples.Length; i++) {
+            samples[i] *= 0.5f * (1 - MathF.Cos(2 * MathF.PI * i / (samples.Length - 1)));
+        }
+
+        // Perform pitch detection
+        var pitchInfo = GetPitch(samples, (float)AudioServer.GetMixRate(), minFreq, maxFreq);
+
+        //set current pitch and emit signal if changed
+        if(pitchInfo.Frequency != CurrentPitch.Frequency) {
+            CurrentPitch = pitchInfo;
+            EmitSignal(SignalName.PitchChanged, CurrentPitch);
+        }
+    }
+    /// <summary>
+    /// Sets the minimum frequency value that will be considered for detection.
+    /// </summary>
+    /// <param name="frequency">Must be a non-negative value.</param>
+    public void SetMinFrequency(float frequency) {
+        minFreq = frequency;
+    }
+    /// <summary>
+    /// Sets the maximum frequency value that will be considered for detection.
+    /// </summary>
+    /// <param name="frequency">Must be a non-negative value.</param>
+    public void SetMaxFrequency(float frequency) {
+        maxFreq = frequency;
+    }
+    /// <summary>
+    /// Sets the audio bus name used for microphone input.
+    /// </summary>
+    /// <param name="busName"></param>
+    public void SetAudioBusName(string busName) {
+        AudioBusName = busName;
+        busIndex = AudioServer.GetBusIndex(AudioBusName);
+        if (micPlayer != null) {
+            micPlayer.Bus = AudioBusName;
+        }
+    }
+    /// <summary>
+    /// Sets the buffer size used for pitch detection.
+    /// </summary>
+    /// <param name="size">The buffer size in samples.</param>
+    public void SetBufferSize(int size) {
+        BufferSize = size;
+    }
+
+    // gets pitch information from audio samples
+    private static PitchInfo GetPitch(float[] samples, float sampleRate, float minFreq, float maxFreq) {
+        var output = new PitchInfo();
+        int size = samples.Length;
+        int maxLag = size / 2;
+        float[] autocorr = new float[maxLag];
+
+        // calculate signal energy for normalization
+        float energy = 0f;
+        for (int i = 0; i < size; i++)
+            energy += samples[i] * samples[i];
+
+        if (energy <= 0) {
+            output.Frequency = 0f;
+            output.Note = "--";
+            output.CentsOffset = 0f;
+            return output;
+        }
+
+        // perform autocorrelation on samples
+        for (int lag = 0; lag < maxLag; lag++) {
+            float sum = 0f;
+            for (int i = 0; i < size - lag; i++)
+                sum += samples[i] * samples[i + lag];
+
+            autocorr[lag] = sum / energy; // normalize
+        }
+
+
+
+        int minLag = (int)(sampleRate / maxFreq);
+        int maxValidLag = Math.Min((int)(sampleRate / minFreq), maxLag - 1);
+
+        // find strongest peak in valid lag range
+        int bestLag = 0;
+        float bestValue = 0f;
+
+        for (int i = minLag + 1; i < maxValidLag - 1; i++) {
+            if (autocorr[i] > bestValue &&
+                autocorr[i] > autocorr[i - 1] &&
+                autocorr[i] > autocorr[i + 1]) {
+
+                bestValue = autocorr[i];
+                bestLag = i;
+            }
+        }
+
+        // return invalid pitch if no peak found
+        if (bestLag == 0) {
+            output.Frequency = 0f;
+            output.Note = "--";
+            output.CentsOffset = 0f;
+            return output;
+        }
+
+        // refine peak using parabolic interpolation
+        float y0 = autocorr[bestLag - 1];
+        float y1 = autocorr[bestLag];
+        float y2 = autocorr[bestLag + 1];
+
+        float shift = 0.5f * (y0 - y2) / (y0 - 2f * y1 + y2);
+        float refinedLag = bestLag + shift;
+
+        // calculate frequency from refined lag
+        float frequency = sampleRate / refinedLag;
+        string note = NoteName(frequency);
+
+        // calculate cents offset from nearest note
+        float centsOffset = 0f;
+        if (frequency > 0f) {
+            double a4 = 440.0;
+            double semitones = 12 * Math.Log(frequency / a4, 2);
+            double roundedSemitones = Math.Round(semitones);
+            centsOffset = (float)(100 * (semitones - roundedSemitones));
+        }
+
+        // return detected pitch information
+        output.Frequency = frequency;
+        output.Note = note;
+        output.CentsOffset = centsOffset;
+        return output;
+    }
+
+
+    // Convert frequency to note name
+    private static string NoteName(float frequency) {
+        //return invalid note for non-positive frequencies
+        if (frequency <= 0) {
+            return "--";
+        }
+
+        // Calculate note name from frequency
+        string[] noteNames = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+        double a4 = 440.0;  // Reference frequency for A4
+
+        // Calculate number of semitones from A4
+        double semitones = 12 * Math.Log(frequency / a4, 2);
+
+        // Determine note index and octave
+        int noteIndex = (int)Math.Round(semitones) + 9 + 12 * 4;
+        int octave = noteIndex / 12;
+        int note = noteIndex % 12;
+
+        //return note in Letter+Octave format "E2"
+        return $"{noteNames[(note + 12) % 12]}{octave}";
+    }
+}
+
+[GlobalClass]
+public partial class PitchInfo : Resource {
+    [Export] public float Frequency { get; set; }
+    [Export] public string Note { get; set; } = "--";
+    [Export] public float CentsOffset { get; set; }
+    public bool IsValid => Frequency > 0 && Note != "--";
+    public override string ToString() => $"{Note} ({Frequency:F2} Hz, {CentsOffset:+0.##;-0.##} cents)";
+
+}
