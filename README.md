@@ -1,11 +1,5 @@
 # PitchDetector for Godot .NET
 
-**Author:** James Collins (jbc2001)  
-**Version:** 1.0  
-**License:** MIT  
-
----
-
 ## Overview
 
 **PitchDetector** is a real-time **monophonic pitch detection plugin** for Godot .NET projects.  
