@@ -29,7 +29,7 @@ public partial class PitchDetector : Node {
 
     // Initialize microphone input and audio bus
     public override void _EnterTree() {
-
+		
         if (Instance != null) {
             QueueFree(); // prevent duplicates
             return;
