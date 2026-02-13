@@ -19,6 +19,10 @@ public partial class PitchDetector : Node {
     public float minFreq = 40f;   // low E on Bass = 41 Hz
     [Export]
     public float maxFreq = 700f;  // high E on Guitar = 660 Hz
+    [Export]
+    public float noiseThreshold = 0f;
+    [Export]
+    public bool disableFreqComparison = false;
 
     [Signal]
     public delegate void PitchChangedEventHandler(PitchInfo pitch);
@@ -105,10 +109,10 @@ public partial class PitchDetector : Node {
         }
 
         // Perform pitch detection
-        var pitchInfo = GetPitch(samples, (float)AudioServer.GetMixRate(), minFreq, maxFreq);
+        var pitchInfo = GetPitch(samples, (float)AudioServer.GetMixRate(), minFreq, maxFreq, noiseThreshold);
 
         //set current pitch and emit signal if changed
-        if(pitchInfo.Frequency != CurrentPitch.Frequency) {
+        if(pitchInfo.Frequency != CurrentPitch.Frequency || disableFreqComparison) {
             CurrentPitch = pitchInfo;
             EmitSignal(SignalName.PitchChanged, CurrentPitch);
         }
@@ -126,6 +130,23 @@ public partial class PitchDetector : Node {
     /// <param name="frequency">Must be a non-negative value.</param>
     public void SetMaxFrequency(float frequency) {
         maxFreq = frequency;
+    }
+    /// <summary>
+    /// Sets the noise threshold value that will be considered for detection.
+    /// When detecting, if energy of audio signal is below the threshold, PitchInfo will be set to empty.
+    /// </summary>
+    /// <param name="threshold">Must be a non-negative value.</param>
+    public void SetNoiseThreshold(float threshold)
+    {
+        noiseThreshold = threshold;
+    }
+    // <summary>
+    /// Sets whether the comparison between last frequency and current frequency will be ignored in detection.
+    /// </summary>
+    /// <param name="disable"></param>
+    public void SetDisableFrequencyComparison(bool disable)
+    {
+        disableFreqComparison = disable;
     }
     /// <summary>
     /// Sets the audio bus name used for microphone input.
@@ -147,7 +168,7 @@ public partial class PitchDetector : Node {
     }
 
     // gets pitch information from audio samples
-    private static PitchInfo GetPitch(float[] samples, float sampleRate, float minFreq, float maxFreq) {
+    private static PitchInfo GetPitch(float[] samples, float sampleRate, float minFreq, float maxFreq, float noiseThreshold) {
         var output = new PitchInfo();
         int size = samples.Length;
         int maxLag = size / 2;
@@ -158,7 +179,9 @@ public partial class PitchDetector : Node {
         for (int i = 0; i < size; i++)
             energy += samples[i] * samples[i];
 
-        if (energy <= 0) {
+        output.Energy = energy;
+
+        if (energy <= noiseThreshold) {
             output.Frequency = 0f;
             output.Note = "--";
             output.CentsOffset = 0f;
@@ -259,7 +282,9 @@ public partial class PitchInfo : Resource {
     [Export] public float Frequency { get; set; }
     [Export] public string Note { get; set; } = "--";
     [Export] public float CentsOffset { get; set; }
+    [Export] public float Energy { get; set; }
+
     public bool IsValid => Frequency > 0 && Note != "--";
-    public override string ToString() => $"{Note} ({Frequency:F2} Hz, {CentsOffset:+0.##;-0.##} cents)";
+    public override string ToString() => $"{Note} ({Frequency:F2} Hz, {CentsOffset:+0.##;-0.##} cents, {Energy:F4} energy)";
 
 }
