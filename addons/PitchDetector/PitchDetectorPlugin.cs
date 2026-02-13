@@ -73,6 +73,20 @@ public partial class PitchDetectorPlugin : EditorPlugin {
         };
         panel.AddChild(maxFreqField);
 
+        var label5 = new Label();
+        label5.Text = "Noise threshold:";
+        panel.AddChild(label5);
+
+        var noiseThresholdField = new SpinBox();
+        noiseThresholdField.MinValue = 0;
+        noiseThresholdField.MaxValue = 10;
+        noiseThresholdField.Step = 0.05;
+        noiseThresholdField.Value = PitchDetector.Instance?.noiseThreshold ?? 0f;
+        noiseThresholdField.ValueChanged += (double val) => {
+            PitchDetector.Instance?.SetNoiseThreshold((float)val);
+        };
+        panel.AddChild(noiseThresholdField);
+
         // Wrap the panel in an EditorDock
         dock = new EditorDock();
         dock.Title = "PitchDetector Settings";
