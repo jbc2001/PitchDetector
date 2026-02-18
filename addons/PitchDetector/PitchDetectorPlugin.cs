@@ -1,6 +1,7 @@
 // PitchDetector.cs
 // Copyright (c) 2026 James Collins (jbc2001)
 // Licensed under the MIT License. See LICENSE file in PitchDetector folder.
+#if TOOLS
 using Godot;
 
 [Tool]
@@ -107,3 +108,4 @@ public partial class PitchDetectorPlugin : EditorPlugin {
         }
     }
 }
+#endif
