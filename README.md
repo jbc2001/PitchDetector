@@ -16,14 +16,15 @@ The plugin provides:
 
 ## Installation
 
-1. Copy the `PitchDetector` folder into your project’s `addons/` directory.
-2. Enable the plugin in **Project → Project Settings → Plugins**.
-3. Add the `PitchDetector` node to your project as an **Autoload** (singleton):  
+1. Either download the plugin from the godot asset store https://godotengine.org/asset-library/asset or from here directly as a .zip
+2. Copy the `PitchDetector` folder into your project’s `addons/` directory.
+3. Enable the plugin in **Project → Project Settings → Plugins**.
+4. Add the `PitchDetector` node to your project as an **Autoload** (singleton):  
    - Open **Project → Project Settings → Globals → Autoload**.  
    - Select the 'PitchDetector' script (`PitchDetector.cs`) and give it a name.  
    - Then click **Add**.  
    - Ensure **Enable** is checked.
-4. Configure settings in the editor dock (Audio Bus, Buffer Size, Min/Max Frequency).
+5. Configure settings in the editor dock (Audio Bus, Buffer Size, Min/Max Frequency).
 
 ---
 
@@ -37,6 +38,7 @@ if (pitchDetector != null && pitchDetector.CurrentPitch.IsValid)
     GD.Print($"Note: {pitchDetector.CurrentPitch.Note}");
     GD.Print($"Frequency: {pitchDetector.CurrentPitch.Frequency} Hz");
     GD.Print($"Cents Offset: {pitchDetector.CurrentPitch.CentsOffset}");
+    GD.Print($"Energy: {pitchDetector.CurrentPitch.Energy}");
 }
 ```
 ---
@@ -57,6 +59,8 @@ PitchDetector.Instance?.SetAudioBusName("Record");
 PitchDetector.Instance?.SetBufferSize(2048);
 PitchDetector.Instance?.SetMinFrequency(40f);
 PitchDetector.Instance?.SetMaxFrequency(700f);
+PitchDetector.Instance?.SetNoiseThreshold(0.0f);
+PitchDetector.Instance?.SetDisableFreqComparison(false);
 ```
 ---
 
@@ -66,6 +70,7 @@ The **PitchDetector** plugin provides an interface for adjusting audio settings 
 - **Buffer Size:** *The number of samples taken per pitch detection window.*
 - **Min Frequency:** *The minimum frequency the plugin will attempt to detect (Hz).*
 - **Max Frequency:** *The maximum frequency the plugin will attempt to detect (Hz).*
+- **Noise Threshold:** *The minimum energy required to send a valid pitch.*
 ---
 ## License
 This project is licensed under the **MIT License** see the [LICENSE](LICENSE) file for details.
