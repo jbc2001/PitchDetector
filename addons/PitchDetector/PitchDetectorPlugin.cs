@@ -1,4 +1,4 @@
-// PitchDetector.cs
+// PitchDetectorPlugin.cs
 // Copyright (c) 2026 James Collins (jbc2001)
 // Licensed under the MIT License. See LICENSE file in PitchDetector folder.
 #if TOOLS
@@ -44,7 +44,7 @@ public partial class PitchDetectorPlugin : EditorPlugin {
         };
         panel.AddChild(bufferField);
 
-        //Min Frequency
+        // Min Frequency
         var label3 = new Label();
         label3.Text = "Min Frequency (Hz):";
         panel.AddChild(label3);
@@ -74,6 +74,7 @@ public partial class PitchDetectorPlugin : EditorPlugin {
         };
         panel.AddChild(maxFreqField);
 
+        // Noise Threshold
         var label5 = new Label();
         label5.Text = "Noise threshold:";
         panel.AddChild(label5);

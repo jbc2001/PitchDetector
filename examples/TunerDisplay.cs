@@ -15,6 +15,10 @@ public partial class TunerDisplay : Label
     {
         // Get the PitchDetector instance
         audioIn = PitchDetector.Instance;
+        if (audioIn == null) {
+            GD.PrintErr("PitchDetector instance not found. Ensure it is added as an Autoload.");
+            return;
+        }
         // Subscribe to pitch change events
         audioIn.PitchChanged += OnPitchChanged;
     }
@@ -22,7 +26,9 @@ public partial class TunerDisplay : Label
     // Unsubscribe from events when the node is removed from the scene tree
     public override void _ExitTree()
     {
-        audioIn.PitchChanged -= OnPitchChanged;
+        if (audioIn != null) {
+            audioIn.PitchChanged -= OnPitchChanged;
+        }
     }
 
     // Update the pitch text when a new pitch is detected

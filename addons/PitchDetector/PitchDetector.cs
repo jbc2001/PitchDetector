@@ -42,6 +42,12 @@ public partial class PitchDetector : Node {
 
         // Set up audio bus and microphone input
         int busIndex = AudioServer.GetBusIndex(AudioBusName);
+        if (busIndex == -1) {
+            GD.PrintErr($"Audio bus '{AudioBusName}' not found.");
+            CurrentPitch = new PitchInfo();
+            Instance = null;
+            return;
+        }
         var devices = AudioServer.GetInputDeviceList();
         // Log available input devices
         foreach (var device in devices) {
@@ -50,6 +56,8 @@ public partial class PitchDetector : Node {
         //handle no input devices
         if (devices.Length == 0) {
             GD.PrintErr("No input devices available.");
+            CurrentPitch = new PitchInfo();
+            Instance = null;
             return;
         }
 
@@ -122,6 +130,10 @@ public partial class PitchDetector : Node {
     /// </summary>
     /// <param name="frequency">Must be a non-negative value.</param>
     public void SetMinFrequency(float frequency) {
+        if (frequency <= 0f || frequency >= maxFreq) {
+            GD.PrintErr($"Invalid minFreq: {frequency}. Must be > 0 and < maxFreq ({maxFreq}).");
+            return;
+        }
         minFreq = frequency;
     }
     /// <summary>
@@ -129,6 +141,10 @@ public partial class PitchDetector : Node {
     /// </summary>
     /// <param name="frequency">Must be a non-negative value.</param>
     public void SetMaxFrequency(float frequency) {
+        if (frequency <= minFreq) {
+            GD.PrintErr($"Invalid maxFreq: {frequency}. Must be > minFreq ({minFreq}).");
+            return;
+        }
         maxFreq = frequency;
     }
     /// <summary>
@@ -140,7 +156,7 @@ public partial class PitchDetector : Node {
     {
         noiseThreshold = threshold;
     }
-    // <summary>
+    /// <summary>
     /// Sets whether the comparison between last frequency and current frequency will be ignored in detection.
     /// </summary>
     /// <param name="disable"></param>
@@ -153,11 +169,16 @@ public partial class PitchDetector : Node {
     /// </summary>
     /// <param name="busName"></param>
     public void SetAudioBusName(string busName) {
+        int busIndex = AudioServer.GetBusIndex(busName);
+        if (busIndex == -1) {
+            GD.PrintErr($"Audio bus '{busName}' not found.");
+            return;
+        }
         AudioBusName = busName;
-        int busIndex = AudioServer.GetBusIndex(AudioBusName);
         if (micPlayer != null) {
             micPlayer.Bus = AudioBusName;
         }
+        capture = (AudioEffectCapture)AudioServer.GetBusEffect(busIndex, 0);
     }
     /// <summary>
     /// Sets the buffer size used for pitch detection.
@@ -199,7 +220,7 @@ public partial class PitchDetector : Node {
 
 
 
-        int minLag = (int)(sampleRate / maxFreq);
+        int minLag = Math.Max(1, (int)(sampleRate / maxFreq));
         int maxValidLag = Math.Min((int)(sampleRate / minFreq), maxLag - 1);
 
         // find strongest peak in valid lag range
@@ -229,7 +250,11 @@ public partial class PitchDetector : Node {
         float y1 = autocorr[bestLag];
         float y2 = autocorr[bestLag + 1];
 
-        float shift = 0.5f * (y0 - y2) / (y0 - 2f * y1 + y2);
+        float shift = 0f;
+        float denom = y0 - 2f * y1 + y2;
+        if (denom != 0f) {
+            shift = 0.5f * (y0 - y2) / denom;
+        }
         float refinedLag = bestLag + shift;
 
         // calculate frequency from refined lag
@@ -269,7 +294,7 @@ public partial class PitchDetector : Node {
 
         // Determine note index and octave
         int noteIndex = (int)Math.Round(semitones) + 9 + 12 * 4;
-        int octave = noteIndex / 12;
+        int octave = Math.Clamp(noteIndex / 12, 0, 9);
         int note = noteIndex % 12;
 
         //return note in Letter+Octave format "E2"

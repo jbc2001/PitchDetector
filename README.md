@@ -45,7 +45,7 @@ if (pitchDetector != null && pitchDetector.CurrentPitch.IsValid)
 
 ### Listening for pitch changes
 ```csharp
-pitchDetector.Connect("PitchChanged", this, nameof(OnPitchChanged));
+pitchDetector.PitchChanged += OnPitchChanged;
 
 void OnPitchChanged(PitchInfo pitch)
 {
@@ -60,7 +60,7 @@ PitchDetector.Instance?.SetBufferSize(2048);
 PitchDetector.Instance?.SetMinFrequency(40f);
 PitchDetector.Instance?.SetMaxFrequency(700f);
 PitchDetector.Instance?.SetNoiseThreshold(0.0f);
-PitchDetector.Instance?.SetDisableFreqComparison(false);
+PitchDetector.Instance?.SetDisableFrequencyComparison(false);
 ```
 ---
 
