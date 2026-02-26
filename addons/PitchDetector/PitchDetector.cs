@@ -16,14 +16,15 @@ public partial class PitchDetector : Node {
     [Export] 
     public string AudioBusName = "Record";
     [Export]
-    public float minFreq = 40f;   // low E on Bass = 41 Hz
+    public float minFreq = 30f;
     [Export]
-    public float maxFreq = 700f;  // high E on Guitar = 660 Hz
+    public float maxFreq = 1000f;
     [Export]
     public float noiseThreshold = 0f;
     [Export]
     public bool disableFreqComparison = false;
-
+    [Export]
+    public bool InputConfiguredExternally = false; // Set to true if user will configure audio input instead of using default
     [Signal]
     public delegate void PitchChangedEventHandler(PitchInfo pitch);
 
@@ -48,17 +49,19 @@ public partial class PitchDetector : Node {
             Instance = null;
             return;
         }
-        var devices = AudioServer.GetInputDeviceList();
-        // Log available input devices
-        foreach (var device in devices) {
-            GD.Print($"Input Device: {device}");
-        }
-        //handle no input devices
-        if (devices.Length == 0) {
-            GD.PrintErr("No input devices available.");
-            CurrentPitch = new PitchInfo();
-            Instance = null;
-            return;
+        if (!InputConfiguredExternally) {
+            var devices = AudioServer.GetInputDeviceList();
+            // Log available input devices
+            foreach (var device in devices) {
+                GD.Print($"Input Device: {device}");
+            }
+            //handle no input devices
+            if (devices.Length == 0) {
+                GD.PrintErr("No input devices available.");
+                CurrentPitch = new PitchInfo();
+                Instance = null;
+                return;
+            }
         }
 
         // Create and configure AudioStreamPlayer for microphone input
