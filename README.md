@@ -72,5 +72,15 @@ The **PitchDetector** plugin provides an interface for adjusting audio settings 
 - **Max Frequency:** *The maximum frequency the plugin will attempt to detect (Hz).*
 - **Noise Threshold:** *The minimum energy required to send a valid pitch.*
 ---
+
+## Games Using This Plugin
+
+If you've built a game using the PitchDetector plugin, feel free to open a PR and add it to the list!
+
+| Game | Developer | Description |
+|------|-----------|-------------|
+| [PixelFret](https://pixelfret.com) | James Collins (jbc2001) | A pixel-art style guitar game that helps you learn the fretboard and scales. |
+
+---
 ## License
 This project is licensed under the **MIT License** see the [LICENSE](LICENSE) file for details.
